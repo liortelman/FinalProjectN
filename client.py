@@ -198,7 +198,7 @@ if __name__ == "__main__":
     files = client.generate_random_files(num_flows)  # Generate 10 random files
 
     # Load the content of the generated files into memory
-    data = [open(file, 'rb').read() for file in files]
+    data = [open(file, 'r').read() for file in files]
 
     client.send_all_packets(data)  # Send packets until all files are fully transmitted
 
