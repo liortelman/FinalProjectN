@@ -52,7 +52,9 @@ class Client:
         flags = 0b00000010  # Data flag indicating this packet contains data frames
 
         # Determine the number of streams to include based on the given percentage
-        frames_num = round(len(data) * (percentage / 100))
+        full_data_len = 10
+        frame_percentage = round(full_data_len * (percentage / 100))
+        frames_num = min(frame_percentage, len(data))
 
         # Calculate the size of each frame based on the total packet size divided by the number of frames
         frame_size = round(self.chunk_size / frames_num)
@@ -99,7 +101,7 @@ class Client:
         """
         serialized_packet = packet.serialize()
         self.client_socket.sendto(serialized_packet, self.server_address)
-        print(f"Sent packet with {len(packet.frames)} frames to {self.server_address}")
+        #print(f"Sent packet to {self.server_address} with packet number {packet.header.packet_number}")
 
     def send_all_packets(self, data):
         """
@@ -208,7 +210,6 @@ if __name__ == "__main__":
 
     # Load the content of the generated files into memory
     data = [open(file, 'r').read() for file in files]
-
     client.send_all_packets(data)  # Send packets until all files are fully transmitted
 
     client.close()  # Close the connection
