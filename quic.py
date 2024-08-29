@@ -101,7 +101,7 @@ class Quic_packet:
             frames.append(frame)
             data = data[frame_size:]
 
-        return Quic_packet(deserialized_header.flags, deserialized_header.packet_number, deserialized_header.connection_id , frames)
+        return Quic_packet(deserialized_header.flags, deserialized_header.packet_number, deserialized_header.connection_id, frames)
 
 
 class Header:
@@ -145,12 +145,11 @@ class Frame:
         self.data = data
 
     def serialize(self):
-        # Serialize stream_id as 2-byte integer, offset as 8 bytes , data_length 8 bytes , data as-is
-        return struct.pack("!HQQ", self.stream_id, self.offset, self.data_length) + self.data.encode('utf-8')
-        # TO DO: check if encode is correct
+        # Serialize stream_id as a 2-byte integer, offset as an 8-byte integer,
+        # data_length as an 8-byte integer, and data as-is
+        serialized_frame = struct.pack("!HQQ", self.stream_id, self.offset, self.data_length) + self.data.encode('utf-8')
 
-        serialized_frame += self.data.encode('utf-8') ## Append the frame's data (self.data), encoded in UTF-8, to the serialized frame string (serialized_frame)
-        return serialized_frame ## Return the serialized frame string (serialized_frame) containing the UTF-8 encoded data
+        return serialized_frame
 
     @staticmethod
     def deserialize(data):

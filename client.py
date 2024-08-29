@@ -4,6 +4,7 @@
 # each file will be sent in a different stream
 # The client will now send each file over a stream with a consistent chunk size per stream.
 # The chunk size will be randomized between 1000 and 2000 bytes.
+import os
 
 # each packet contains frames from diffrent streams,where each stream have the same size of the quic packet
 from quic import *
@@ -11,13 +12,114 @@ import socket
 import threading
 import time
 import random
+import string
 
 class Client:
     def __init__(self, ip, port):
         self.server_address = (ip, port)
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.chunk_size = random.randint(1000, 2000)  # Consistent chunk size for each packet
+
+
+    def generate_random_files(self, num_flows):
+        """
+                Generate random binary files for the given number of flows (streams).
+                Each file is 2MB in size.
+
+                :param num_flows: Number of files (streams) to generate.
+                :return: List of generated file paths.
+                """
+        files = []
+        file_size = 2 * 1024 * 1024  # 2MB in bytes
+        for i in range(num_flows):
+            file_name = f'random_file_{i}.bin'
+            with open(file_name, 'w') as f:
+                # Generate random bytes of size 2MB (2 * 1024 * 1024 bytes)
+                random_data = ''.join(random.choices(string.ascii_letters + string.digits, k=file_size))
+                f.write(random_data)
+            files.append(file_name)
+        return files
+
+    def create_packet(self, packet_number, data, offsets, percentage=60):
+        """
+        Create a QUIC packet with frames from a percentage of streams.
+
+        :param packet_number: The current packet number being sent.
+        :param data: List of data streams (files) to send.
+        :param offsets: List of current offsets for each stream.
+        :param percentage: Percentage of streams to include in each packet (default is 60%).
+        :return: A tuple containing the created packet, updated data list, and updated offsets.
+        """
+        flags = 0b00000010  # Data flag indicating this packet contains data frames
+
+        # Determine the number of streams to include based on the given percentage
+        frames_num = round(len(data) * (percentage / 100))
+
+        # Calculate the size of each frame based on the total packet size divided by the number of frames
+        frame_size = round(self.chunk_size / frames_num)
+
+        frames = []  # List to hold frames that will be included in this packet
+
+        # Iterate through the selected streams to add their data to the packet
+        for i in range(frames_num):
+            stream_id, stream_data = i, data[i]  # Get the stream ID and its corresponding data
+
+            # Extract a chunk of data from the current offset up to the calculated frame size
+            chunk_data = stream_data[offsets[stream_id]:offsets[stream_id] + frame_size]
+
+
+            # Create a frame with the extracted data, including stream ID, offset, and data length
+            frames.append(Frame(stream_id + 1, offsets[stream_id], len(chunk_data), chunk_data))
+
+            # Update the offset for this stream to the next chunk
+            offsets[stream_id] += len(chunk_data)
+
+            # If the entire stream has been sent, remove it from the data list
+            if offsets[stream_id] >= len(stream_data):
+                data.remove((stream_id, stream_data))
+
+        # Create a QUIC packet with the specified header and the frames created above
+        packet = Quic_packet(flags=flags, packet_number=packet_number, connection_id=1, frames=frames)
+        return packet, data, offsets
+
+    def send_packet(self, packet):
+        """
+        Send the given packet to the server.
+
+        :param packet: The QUIC packet to be sent.
+        """
+        serialized_packet = packet.serialize()
+        self.client_socket.sendto(serialized_packet, self.server_address)
+        print(f"Sent packet with {len(packet.frames)} frames to {self.server_address}")
+
+    def send_all_packets(self, data):
+        """
+        Loop to create and send packets until all data from all streams is fully transmitted.
+
+        :param data: List of data streams (files) to send.
+        """
+        packet_number = 1  # Initialize packet number
+
+        # Initialize offsets for each stream; these track how much of each stream has been sent
+        offsets = [0 for _ in range(len(data))]
+
+        # Continue sending packets until all streams have been fully sent
+        while data:
+            # Create a packet containing parts of each stream, update data and offsets
+            packet, data, offsets = self.create_packet(packet_number, data, offsets)
+
+            # Serialize and send the packet to the server
+            self.send_packet(packet)
+
+            # Optional: Add a small delay between packet sends
+            time.sleep(0.0005)  # Adjust as needed for timing
+
+            packet_number += 1  # Increment packet number for the next packet
 
     def send_syn(self):
+        """
+               Send a SYN packet to initiate the connection with the server.
+         """
         # Set up a QUIC packet with the SYN flag set (assuming SYN is the first bit)
         flags = 0b00000001  # SYN flag
         packet_number = 1
@@ -30,37 +132,49 @@ class Client:
         self.client_socket.sendto(serialized_packet, self.server_address)
         print(f"Sent SYN packet to {self.server_address} with flags {flags}")
 
-    def send_flow(self):
-        ## Send multiple flows (files) to the server
-        for flow_id in range(self.num_flows):  # Iterate over each flow
-            ## Create random data with a random length between 1000 and 2000 bytes
-            data = "Random data " * (random.randint(1000, 2000) // len("Random data "))
+    # function the create a packet ,which have frame from each file stream and the call the send function
+    
 
-            offset = 0  ## Start from 0 to track the current position in the data
-            packet_size = random.randint(1000, 2000)  # Random packet size between 1000 and 2000 bytes
-            while offset < len(data):  ## Continue while there is data to send
-                ## Slice the data into chunks of size packet_size
-                chunk = data[offset:offset + packet_size]
 
-                ## Create a Frame with the flow ID, current offset, length of current chunk, and the chunk data
-                frame = Frame(flow_id, offset, len(chunk), chunk)
 
-                ## Create a Quic_packet with DATA flag, packet ID, connection ID, and the Frame data
-                packet = Quic_packet(0b00000010, flow_id, 1, [frame])  # DATA flag
 
-                ## Serialize the packet into the required format for sending
-                serialized_packet = packet.serialize()
+    # function send packets that will loop until all the files are sent
 
-                ## Send the packet to the server
-                self.client_socket.sendto(serialized_packet, self.server_address)
 
-                ## Update the current offset in the data
-                offset += packet_size
-
-                ## Print information about the sent packet
-                print(f"Sent packet for flow {flow_id} with offset {offset} and packet size {packet_size}")
+    # def send_flow(self):
+    #     ## Send multiple flows (files) to the server
+    #     for flow_id in range(self.num_flows):  # Iterate over each flow
+    #         ## Create random data with a random length between 1000 and 2000 bytes
+    #         data = "Random data " * (random.randint(1000, 2000) // len("Random data "))
+    #
+    #         offset = 0  ## Start from 0 to track the current position in the data
+    #         packet_size = random.randint(1000, 2000)  # Random packet size between 1000 and 2000 bytes
+    #         while offset < len(data):  ## Continue while there is data to send
+    #             ## Slice the data into chunks of size packet_size
+    #             chunk = data[offset:offset + packet_size]
+    #
+    #             ## Create a Frame with the flow ID, current offset, length of current chunk, and the chunk data
+    #             frame = Frame(flow_id, offset, len(chunk), chunk)
+    #
+    #             ## Create a Quic_packet with DATA flag, packet ID, connection ID, and the Frame data
+    #             packet = Quic_packet(0b00000010, flow_id, 1, [frame])  # DATA flag
+    #
+    #             ## Serialize the packet into the required format for sending
+    #             serialized_packet = packet.serialize()
+    #
+    #             ## Send the packet to the server
+    #             self.client_socket.sendto(serialized_packet, self.server_address)
+    #
+    #             ## Update the current offset in the data
+    #             offset += packet_size
+    #
+    #             ## Print information about the sent packet
+    #             print(f"Sent packet for flow {flow_id} with offset {offset} and packet size {packet_size}")
 
     def receive_ack(self):
+        """
+                Receive an ACK packet from the server to confirm the connection.
+         """
         data, server_address = self.client_socket.recvfrom(1024)
         print(f"Received packet from {server_address}")
         packet = Quic_packet.deserialize(data)
@@ -70,6 +184,9 @@ class Client:
                 f"Received packet with packet number {packet.header.packet_number} and connection ID {packet.header.connection_id} and data {packet.frames[0].data}")
 
     def close(self):
+        """
+                Close the client socket connection.
+         """
         self.client_socket.close()
 
 
@@ -77,8 +194,15 @@ if __name__ == "__main__":
     client = Client("localhost", 12346)
     client.send_syn()
     client.receive_ack()
-    time.sleep(5)
-    client.close()
+    num_flows = 10  # Number of files/flows
+    files = client.generate_random_files(num_flows)  # Generate 10 random files
+
+    # Load the content of the generated files into memory
+    data = [open(file, 'rb').read() for file in files]
+
+    client.send_all_packets(data)  # Send packets until all files are fully transmitted
+
+    client.close()  # Close the connection
 
 # import socket
 # import threading
