@@ -11,34 +11,19 @@ class Server:
 
     def start(self):
         print(f"Server listening on {self.server_address}...")
-        while True: # Keep listening for incoming packets
-            data, client_address = self.server_socket.recvfrom(1024*10)  # Receive data from client in size of 1024 bytes
+        while True:  # Keep listening for incoming packets
+            data, client_address = self.server_socket.recvfrom( 1024 * 10)
+            # Receive data from client in size of 1024*10 bytes
             # print(f"Received packet from {client_address}")
             packet = Quic_packet.deserialize(data)
             self.handle_packet(packet, client_address)
 
-            # print(
-            #     f"Received packet with packet number {packet.header.packet_number} and connection ID {packet.header.connection_id} and data {packet.frames[0].data} and flags {packet.header.flags}")
-            #
-            # # If the packet has the SYN flag set, send a  SYN ACK
-            # if packet.header.flags & 0b00000001:
-            #     print("Received SYN packet")
-            #     self.send_syn_ack(client_address, packet.header.packet_number, packet.header.connection_id)
-            #
-            # # if the packet has the FIN flag set, send a FIN ACK
-            # if packet.header.flags & 0b00000010:
-            #     print("Received FIN packet")
-            #     self.send_fin_ack(client_address, packet.header.packet_number, packet.header.connection_id)
-
     def handle_packet(self, packet, client_address):
-        ## Print packet details: Shows the packet number, connection ID, and flags from the received packet.
-        # print(f"Received packet with packet number {packet.header.packet_number}, "
-        #       f"connection ID {packet.header.connection_id}, and flags {packet.header.flags}")
 
-        ## Check if the packet has the SYN flag set (indicating a new connection request).
+        # Check if the packet has the SYN flag set
         if packet.header.flags & 0b00000001:
-            print("Received SYN packet")  ## Inform that a SYN packet was received.
-            ## Send a SYN-ACK response to acknowledge the SYN packet and establish a connection.
+            print("Received SYN packet")
+            # Send a SYN-ACK response to acknowledge the SYN packet and establish a connection.
             self.send_syn_ack(client_address, packet.header.packet_number, packet.header.connection_id)
 
         # Check if the packet has the FIN flag set (indicating a connection termination request).
@@ -46,8 +31,13 @@ class Server:
             print("Received FIN packet")
             # Send a FIN-ACK response to acknowledge the FIN packet and close the connection.
             self.send_fin_ack(client_address, packet.header.packet_number, packet.header.connection_id)
-            #close the connection
+            # close the connection
             self.close()
+
+        # # if it is a data packet
+        # if packet.header.flags & 0b00000010:
+        #     # Process the received data packet.
+        #     self.process_data_packet(packet)
 
 
 
@@ -64,6 +54,19 @@ class Server:
         #     ## Process the received frame data (e.g., save to a file, buffer it, etc.).
         #     ## You need to implement the actual data handling logic in the process_frame method.
         #     self.process_frame(flow_id, offset, data)
+
+
+    #def process_data_packet(self, packet):
+        # for frame in packet.frames:
+        #     flow_id = frame.flow_id
+        #    offset = frame.offset
+        #     length = frame.length
+        #     data = frame.data
+        #     print(f"Received frame for flow {flow_id}: offset {offset}, length {length}, data {data}")
+        #     self.process_frame(flow_id, offset, data)
+
+
+
 
     def send_syn_ack(self, client_address, packet_number, connection_id):
         flags = 0b00000011
@@ -88,11 +91,6 @@ class Server:
 if __name__ == "__main__":
     server = Server("localhost", 12346)
     server.start()
-
-
-
-
-
 
 # import socket
 # import threading
