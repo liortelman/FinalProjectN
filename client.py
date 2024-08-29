@@ -15,7 +15,7 @@ import random
 import string
 
 class Client:
-    def __init__(self, ip, port):
+    def __init__(self, ip, port): # Initialize the client with the server's IP and port
         self.server_address = (ip, port)
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.chunk_size = random.randint(1000, 2000)  # Consistent chunk size for each packet
