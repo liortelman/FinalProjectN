@@ -20,7 +20,6 @@ class Client:
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.chunk_size = random.randint(1000, 2000)  # Consistent chunk size for each packet
 
-
     def generate_random_files(self, num_flows):
         """
                 Generate random binary files for the given number of flows (streams).
@@ -60,9 +59,12 @@ class Client:
 
         frames = []  # List to hold frames that will be included in this packet
 
+        streams_to_remove = []
+
         # Iterate through the selected streams to add their data to the packet
         for i in range(frames_num):
-            stream_id, stream_data = i, data[i]  # Get the stream ID and its corresponding data
+            stream_id = i
+            stream_data = data[stream_id]  # Get the stream ID and its corresponding data
 
             # Extract a chunk of data from the current offset up to the calculated frame size
             chunk_data = stream_data[offsets[stream_id]:offsets[stream_id] + frame_size]
@@ -72,11 +74,18 @@ class Client:
             frames.append(Frame(stream_id + 1, offsets[stream_id], len(chunk_data), chunk_data))
 
             # Update the offset for this stream to the next chunk
+
             offsets[stream_id] += len(chunk_data)
 
             # If the entire stream has been sent, remove it from the data list
             if offsets[stream_id] >= len(stream_data):
-                data.remove((stream_id, stream_data))
+                print("__________________Stream {} has been fully sent___________________________--".format(stream_id))
+                streams_to_remove.append(stream_id)
+
+            # Remove fully sent streams from the data list and corresponding offsets in reverse order
+        for stream_id in sorted(streams_to_remove, reverse=True):
+            data.pop(stream_id)
+            offsets.pop(stream_id)
 
         # Create a QUIC packet with the specified header and the frames created above
         packet = Quic_packet(flags=flags, packet_number=packet_number, connection_id=1, frames=frames)
@@ -133,7 +142,7 @@ class Client:
         print(f"Sent SYN packet to {self.server_address} with flags {flags}")
 
     # function the create a packet ,which have frame from each file stream and the call the send function
-    
+
 
 
 

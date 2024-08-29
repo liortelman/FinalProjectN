@@ -13,7 +13,7 @@ class Server:
         print(f"Server listening on {self.server_address}...")
         while True: # Keep listening for incoming packets
             data, client_address = self.server_socket.recvfrom(1024*10)  # Receive data from client in size of 1024 bytes
-            print(f"Received packet from {client_address}")
+            # print(f"Received packet from {client_address}")
             packet = Quic_packet.deserialize(data)
             self.handle_packet(packet, client_address)
 
@@ -32,8 +32,8 @@ class Server:
 
     def handle_packet(self, packet, client_address):
         ## Print packet details: Shows the packet number, connection ID, and flags from the received packet.
-        print(f"Received packet with packet number {packet.header.packet_number}, "
-              f"connection ID {packet.header.connection_id}, and flags {packet.header.flags}")
+        # print(f"Received packet with packet number {packet.header.packet_number}, "
+        #       f"connection ID {packet.header.connection_id}, and flags {packet.header.flags}")
 
         ## Check if the packet has the SYN flag set (indicating a new connection request).
         if packet.header.flags & 0b00000001:
