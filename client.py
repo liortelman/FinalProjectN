@@ -20,6 +20,7 @@ class Client:
         self.server_address = (ip, port)
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.chunk_size = random.randint(1000, 2000)  # Consistent chunk size for each packet
+        self.stream_id_counter = 0
 
     def generate_random_files(self, num_flows):
         """
@@ -37,57 +38,179 @@ class Client:
                 # Generate random bytes of size 2MB (2 * 1024 * 1024 bytes)
                 random_data = ''.join(random.choices(string.ascii_letters + string.digits, k=file_size))
                 f.write(random_data)
-            files.append((i,file_name))
+            files.append( file_name)
         return files
 
     def create_packet(self, packet_number, data, offsets, percentage=60):
-        """
-        Create a QUIC packet with frames from a percentage of streams.
 
-        :param packet_number: The current packet number being sent.
-        :param data: List of data streams (files) to send.
-        :param offsets: List of current offsets for each stream.
-        :param percentage: Percentage of streams to include in each packet (default is 60%).
-        :return: A tuple containing the created packet, updated data list, and updated offsets.
-        """
         flags = 0b00000010  # Data flag indicating this packet contains data frames
-
-        # Determine the number of streams to include based on the given percentage
         total_streams = len(data)
-        frames_num = max(1, round(total_streams * (percentage / 100)))
-
-        frames = []  # List to hold frames that will be included in this packet
+        frame_percentage = round(total_streams * (percentage / 100))
+        frames_num = min(frame_percentage, total_streams)
+        frame_size = round(self.chunk_size / frames_num)
+        frames = []
         streams_to_remove = []
 
-        # Iterate through the selected streams to add their data to the packet
-        for i in range(frames_num):
-            stream_id, stream_data = data[i]  # Get the stream ID and its corresponding data
+        # Iterate over streams in sequential order (0 to len(data)-1)
+        for stream_id in range(total_streams):
+            if len(frames) >= frames_num:
+                break
 
-            # Calculate the size of the chunk to send for this stream
-            frame_size = min(self.chunk_size, len(stream_data) - offsets[stream_id])
+            if stream_id >= len(data):
+                continue
 
-            # Extract a chunk of data from the current offset up to the calculated frame size
+            stream_data = data[stream_id]
             chunk_data = stream_data[offsets[stream_id]:offsets[stream_id] + frame_size]
-
-            # Create a frame with the extracted data, including stream ID, offset, and data length
-            frames.append(Frame(stream_id + 1, offsets[stream_id], len(chunk_data), chunk_data))
-
-            # Update the offset for this stream to the next chunk
+            frames.append(Frame(stream_id + self.stream_id_counter, offsets[stream_id], len(chunk_data), chunk_data))
             offsets[stream_id] += len(chunk_data)
 
-            # If the entire stream has been sent, mark it for removal
+            # Check if the entire stream has been sent
             if offsets[stream_id] >= len(stream_data):
-                print(f"__________________Stream {stream_id} has been fully sent___________________________--")
-                streams_to_remove.append((stream_id, stream_data))
+                print(f"---------------------------------------Stream {stream_id + self.stream_id_counter} has been fully sent----------------------")
+                streams_to_remove.append(stream_id)
 
-        # Remove fully sent streams from the data list and corresponding offsets
-        for stream in streams_to_remove:
-            data.remove(stream)
-
-        # Create a QUIC packet with the specified header and the frames created above
+        # Remove fully sent streams
+        for stream_id in sorted(streams_to_remove, reverse=True):
+            if stream_id < len(data):
+                data.pop(stream_id)
+                self.stream_id_counter += 1
+                offsets.pop(stream_id)
         packet = Quic_packet(flags=flags, packet_number=packet_number, connection_id=1, frames=frames)
         return packet, data, offsets
 
+    #////////////////////////////// ONE FILE AT A TIME /////////////////////////////////
+    # def create_packet(self, packet_number, data, offsets, percentage=60):
+    #
+    #     """
+    #     Create a QUIC packet with frames from a percentage of streams.
+    #
+    #     :param packet_number: The current packet number being sent.
+    #     :param data: List of data streams (files) to send.
+    #     :param offsets: List of current offsets for each stream.
+    #     :param percentage: Percentage of streams to include in each packet (default is 60%).
+    #     :return: A tuple containing the created packet, updated data list, and updated offsets.
+    #     """
+    #     flags = 0b00000010  # Data flag indicating this packet contains data frames
+    #
+    #     # Determine the number of streams to include based on the given percentage
+    #     full_data_len = 10
+    #     frame_percentage = round(full_data_len * (percentage / 100))
+    #     frames_num = min(frame_percentage, len(data))
+    #
+    #     # Calculate the size of each frame based on the total packet size divided by the number of frames
+    #     frame_size = round(self.chunk_size / frames_num)
+    #
+    #     frames = []  # List to hold frames that will be included in this packet
+    #
+    #     streams_to_remove = []
+    #
+    #     # Iterate through the selected streams to add their data to the packet
+    #     for i in range(frames_num):
+    #         stream_id = len(data) - 1
+    #
+    #         stream_data = data[stream_id]  # Get the stream ID and its corresponding data
+    #
+    #         # Extract a chunk of data from the current offset up to the calculated frame size
+    #         chunk_data = stream_data[offsets[stream_id]:offsets[stream_id] + frame_size]
+    #
+    #         # Create a frame with the extracted data, including stream ID, offset, and data length
+    #         frames.append(Frame(stream_id + 1, offsets[stream_id], len(chunk_data), chunk_data))
+    #
+    #         # Update the offset for this stream to the next chunk
+    #
+    #         offsets[stream_id] += len(chunk_data)
+    #
+    #         # If the entire stream has been sent, remove it from the data list
+    #         if offsets[stream_id] >= len(stream_data):
+    #             print("__________________Stream {} has been fully sent___________________________--".format(stream_id))
+    #             streams_to_remove.append(stream_id)
+    #             data.pop(stream_id)
+    #             offsets.pop(stream_id)
+    #
+    #         stream_id -= 1
+    #
+    #     #     # Remove fully sent streams from the data list and corresponding offsets in reverse order
+    #     # for stream_id in sorted(streams_to_remove, reverse=True):
+    #     #     data.pop(stream_id)
+    #     #     offsets.pop(stream_id)
+    #     # Create a QUIC packet with the specified header and the frames created above
+    #
+    #     print("packet number is ", packet_number)
+    #     packet = Quic_packet(flags=flags, packet_number=packet_number, connection_id=1, frames=frames)
+    #     return packet, data, offsets
+
+
+    #///////////////////////////////////// נטישת הרעיון המקורי וכתיבה מחדש /////////////////////////////////
+    # def create_packet(self, packet_number, data, offsets):
+    #     print("hello")
+    #     flags = 0b00000010  # Data flag indicating this packet contains data frames
+    #     frames_num = round(len(data) * 0.6)
+    #     frames_size = round(self.chunk_size / frames_num)
+    #     frames = []
+    #     packet_chosen = random.sample(data , frames_num)  # choose random streams to send in the packet
+    #     for frame_id, frames_data in packet_chosen:
+    #         print ("frame id is ", frame_id)
+    #         chunk_data = frames_data[offsets[frame_id]:offsets[frame_id] + frames_size]
+    #         frames.append(Frame(frame_id + 1, offsets[frame_id], len(chunk_data), chunk_data))
+    #         offsets[frame_id] += frames_size
+    #         if offsets[frame_id] >= len(frames_data):
+    #             print(f"__________________Stream {frame_id} has been fully sent___________________________--")
+    #             data.remove((frame_id, frames_data))
+    #
+    #     packet = Quic_packet(flags=flags, packet_number=packet_number, connection_id=1, frames=frames)
+    #     return packet, data, offsets
+
+    #/////////////////////////////////////////// מה שניסינו לעשות אחרי ההפסקה/////////////////////////////////////////////
+    # def create_packet(self, packet_number, data, offsets, percentage=60):
+    #     """
+    #     Create a QUIC packet with frames from a percentage of streams.
+    #
+    #     :param packet_number: The current packet number being sent.
+    #     :param data: List of data streams (files) to send.
+    #     :param offsets: List of current offsets for each stream.
+    #     :param percentage: Percentage of streams to include in each packet (default is 60%).
+    #     :return: A tuple containing the created packet, updated data list, and updated offsets.
+    #     """
+    #     flags = 0b00000010  # Data flag indicating this packet contains data frames
+    #
+    #     # Determine the number of streams to include based on the given percentage
+    #     total_streams = len(data)
+    #     frames_num = max(1, round(total_streams * (percentage / 100)))
+    #
+    #     frames = []  # List to hold frames that will be included in this packet
+    #     streams_to_remove = []
+    #
+    #     # Iterate through the selected streams to add their data to the packet
+    #     for i in range(frames_num):
+    #         stream_id, stream_data = data[i]  # Get the stream ID and its corresponding data
+    #         print("stream id is ", stream_id)
+    #
+    #         # Calculate the size of the chunk to send for this stream
+    #         frame_size = min(self.chunk_size, len(stream_data) - offsets[stream_id])
+    #
+    #         # Extract a chunk of data from the current offset up to the calculated frame size
+    #         chunk_data = stream_data[offsets[stream_id]:offsets[stream_id] + frame_size]
+    #
+    #         # Create a frame with the extracted data, including stream ID, offset, and data length
+    #         frames.append(Frame(stream_id + 1, offsets[stream_id], len(chunk_data), chunk_data))
+    #
+    #         # Update the offset for this stream to the next chunk
+    #         offsets[stream_id] += len(chunk_data)
+    #
+    #         # If the entire stream has been sent, mark it for removal
+    #         if offsets[stream_id] >= len(stream_data):
+    #             print(f"__________________Stream {stream_id} has been fully sent___________________________--")
+    #             streams_to_remove.append((stream_id, stream_data))
+    #
+    #     # Remove fully sent streams from the data list and corresponding offsets
+    #     for stream in streams_to_remove:
+    #         data.remove(stream)
+    #
+    #     # Create a QUIC packet with the specified header and the frames created above
+    #     packet = Quic_packet(flags=flags, packet_number=packet_number, connection_id=1, frames=frames)
+    #     return packet, data, offsets
+
+    #///////////////////////////// האחד עם המערך///////////////////////////
     # def create_packet(self, packet_number, data, offsets, frames_id_arr, percentage=60):
     #     """
     #     Create a QUIC packet with frames from a percentage of streams.
@@ -151,7 +274,6 @@ class Client:
     #     packet = Quic_packet(flags=flags, packet_number=packet_number, connection_id=1, frames=frames)
     #     return packet, data, offsets
 
-    # def frame_numbering(self, ):
 
     def send_packet(self, packet):
         """
@@ -164,33 +286,48 @@ class Client:
         # print(f"Sent packet to {self.server_address} with packet number {packet.header.packet_number}")
 
     def send_all_packets(self, data):
-        """
-        Loop to create and send packets until all data from all streams is fully transmitted.
-
-        :param data: List of data streams (files) to send.
-        """
-        packet_number = 1  # Initialize packet number
-
-        # Initialize offsets for each stream; these track how much of each stream has been sent
+        packet_number = 1
         offsets = [0 for _ in range(len(data))]
+        fin_sent = False
 
-        frames_id_arr = [9 , 8, 7, 6, 5, 4, 3, 2, 1, 0]
-
-        # Continue sending packets until all streams have been fully sent
         while data:
-            # Create a packet containing parts of each stream, update data and offsets
             packet, data, offsets = self.create_packet(packet_number, data, offsets)
-
-            # Serialize and send the packet to the server
             self.send_packet(packet)
+            time.sleep(0.0001)
+            packet_number += 1
 
-            # Optional: Add a small delay between packet sends
-            time.sleep(0.0001)  # Adjust as needed for timing
-
-            packet_number += 1  # Increment packet number for the next packet
+        if not fin_sent:
+            self.send_fin_massage(self.server_address, packet_number, 1)
+            fin_sent = True
 
         print("All data has been sent")
-        self.send_fin_massage(self.server_address, packet_number, 1)
+
+    # def send_all_packets(self, data):
+    #     """
+    #     Loop to create and send packets until all data from all streams is fully transmitted.
+    #
+    #     :param data: List of data streams (files) to send.
+    #     """
+    #     packet_number = 1  # Initialize packet number
+    #
+    #     # Initialize offsets for each stream; these track how much of each stream has been sent
+    #     offsets = [0 for _ in range(len(data))]
+    #
+    #     # Continue sending packets until all streams have been fully sent
+    #     while data:
+    #         # Create a packet containing parts of each stream, update data and offsets
+    #         packet, data, offsets = self.create_packet(packet_number, data, offsets)
+    #
+    #         # Serialize and send the packet to the server
+    #         self.send_packet(packet)
+    #
+    #         # Optional: Add a small delay between packet sends
+    #         time.sleep(0.0001)  # Adjust as needed for timing
+    #
+    #         packet_number += 1  # Increment packet number for the next packet
+    #
+    #     print("All data has been sent")
+    #     self.send_fin_massage(self.server_address, packet_number, 1)
 
     def send_syn(self):
         """
@@ -243,8 +380,8 @@ if __name__ == "__main__":
     files = client.generate_random_files(num_files)  # Generate 10 random files
 
     # Load the content of the generated files into memory
-    # data = [open(file, 'r').read() for file in files]
-    data = [(file_id, file_data) for file_id, file_data in files]
+    data = [open(file, 'r').read() for file in files]
+    # data = [(file_id, file_data) for file_id, file_data in files]
 
     client.send_all_packets(data)  # Send packets until all files are fully transmitted
     time.sleep(0.05)
