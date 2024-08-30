@@ -66,7 +66,8 @@ class Client:
 
 
         # Iterate through the selected streams to add their data to the packet
-        for stream_id in range(frames_num):
+        for i in range(frames_num):
+            stream_id = len(data) - 1
 
             stream_data = data[stream_id]  # Get the stream ID and its corresponding data
 
@@ -84,11 +85,15 @@ class Client:
             if offsets[stream_id] >= len(stream_data):
                 print("__________________Stream {} has been fully sent___________________________--".format(stream_id))
                 streams_to_remove.append(stream_id)
+                data.pop(stream_id)
+                offsets.pop(stream_id)
 
-            # Remove fully sent streams from the data list and corresponding offsets in reverse order
-        for stream_id in sorted(streams_to_remove, reverse=True):
-            data.pop(stream_id)
-            offsets.pop(stream_id)
+            stream_id -= 1
+
+        #     # Remove fully sent streams from the data list and corresponding offsets in reverse order
+        # for stream_id in sorted(streams_to_remove, reverse=True):
+        #     data.pop(stream_id)
+        #     offsets.pop(stream_id)
 
         # Create a QUIC packet with the specified header and the frames created above
         packet = Quic_packet(flags=flags, packet_number=packet_number, connection_id=1, frames=frames)
@@ -111,6 +116,7 @@ class Client:
         :param data: List of data streams (files) to send.
         """
         packet_number = 1  # Initialize packet number
+
 
         # Initialize offsets for each stream; these track how much of each stream has been sent
         offsets = [0 for _ in range(len(data))]
@@ -178,8 +184,8 @@ if __name__ == "__main__":
     client = Client("localhost", 12346)
     client.send_syn()
     client.receive_ack()
-    num_flows = 10  # Number of files/flows
-    files = client.generate_random_files(num_flows)  # Generate 10 random files
+    num_files = 10  # Number of files
+    files = client.generate_random_files(num_files)  # Generate 10 random files
 
     # Load the content of the generated files into memory
     data = [open(file, 'r').read() for file in files]
