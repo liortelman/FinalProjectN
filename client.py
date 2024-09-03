@@ -40,6 +40,7 @@ class Client:
                 random_data = ''.join(random.choices(string.ascii_letters + string.digits, k=file_size))
                 f.write(random_data)
             files.append(file_name)
+            print(f"Generated file {file_name} with size {file_size} bytes")
         return files
 
     def create_packet(self, packet_number, data, offsets, percentage=60):
@@ -67,9 +68,9 @@ class Client:
 
             # Check if the entire stream has been sent
             if offsets[stream_id] >= len(stream_data):
-                print(
-                    f"---------------------------------------Stream {stream_id + self.stream_id_counter} has been fully sent----------------------")
+                print(f"---------------------------------------Stream {stream_id + self.stream_id_counter} has been fully sent----------------------")
                 streams_to_remove.append(stream_id)
+                print(f"File corresponding to stream {stream_id + self.stream_id_counter} fully sent with size {len(stream_data)} bytes")
 
         # Remove fully sent streams
         for stream_id in sorted(streams_to_remove, reverse=True):
@@ -98,7 +99,7 @@ class Client:
         while data:
             packet, data, offsets = self.create_packet(packet_number, data, offsets)
             self.send_packet(packet)
-            time.sleep(0.0001)
+            time.sleep(0.0005)
             packet_number += 1
 
         if not fin_sent:

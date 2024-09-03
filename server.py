@@ -1,6 +1,8 @@
+import filecmp
 import socket
 import time
 
+import client
 from quic import *
 
 
@@ -20,7 +22,7 @@ class Server:
         print(f"- Server listening on {self.server_address}...")
 
     def start(self):
-        packet, client_address = self.server_socket.recvfrom(1024 *1024 * 10)   # Receive data from client in size of 1024*10 bytes
+        packet, client_address = self.server_socket.recvfrom(1024 *1024 *10)   # Receive data from the client (up to 10MB)
         deserialized_packet = Quic_packet.deserialize(packet)
         return deserialized_packet, client_address
 
@@ -133,6 +135,37 @@ class Server:
         avg_total_packets_per_sec = self.total_packets / self.total_time if self.total_time > 0 else 0
         print("--------------------------------------------------------------------------------")
         print(f"\ne.     Overall Average Packet Rate: {avg_total_packets_per_sec} packets/sec\n")
+
+        for i in range(len(self.files)):
+            print(f"File {i} size: {len(self.files[i])} bytes")
+
+        for(i, file) in enumerate(self.files):
+            with open(f"output_{i}.txt", "w") as f:
+                f.write(file)
+
+        file1 = '/Users/matanmarkovits/PycharmProjects/FinalProjectN/output_0.txt'
+        file2 = '/Users/matanmarkovits/PycharmProjects/FinalProjectN/random_file_0.txt'
+
+        if self.compare_files(file1, file2):
+            print("The files are identical.")
+        else:
+            print("The files are different.")
+
+
+    def compare_files(self, file1, file2):
+        """
+        Compare two files to see if they are identical.
+
+        :param file1: Path to the first file.
+        :param file2: Path to the second file.
+        :return: True if files are identical, False otherwise.
+        """
+        return filecmp.cmp(file1, file2, shallow=False)
+
+
+
+
+
 
 
 
