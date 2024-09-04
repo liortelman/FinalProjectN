@@ -40,7 +40,6 @@ class Client:
                 random_data = ''.join(random.choices(string.ascii_letters + string.digits, k=file_size))
                 f.write(random_data)
             files.append(file_name)
-            print(f"Generated file {file_name} with size {file_size} bytes")
         return files
 
     def create_packet(self, packet_number, data, offsets, percentage=60):
@@ -68,7 +67,6 @@ class Client:
 
             # Check if the entire stream has been sent
             if offsets[stream_id] >= len(stream_data):
-                print(f"---------------------------------------Stream {stream_id + self.stream_id_counter} has been fully sent----------------------")
                 streams_to_remove.append(stream_id)
                 print(f"File corresponding to stream {stream_id + self.stream_id_counter} fully sent with size {len(stream_data)} bytes")
 
@@ -133,8 +131,7 @@ class Client:
         packet = Quic_packet.deserialize(data)
 
         if packet.header.flags & 0b00000011:
-            print(
-                f"Received packet with packet number {packet.header.packet_number} and connection ID {packet.header.connection_id} and data {packet.frames[0].data}")
+            print(f"Received packet with packet number {packet.header.packet_number} and connection ID {packet.header.connection_id} and data {packet.frames[0].data}")
 
     def close(self):
         """
@@ -151,17 +148,34 @@ class Client:
         print(f"Sent FIN packet to {server_address}")
 
 
-if __name__ == "__main__":
-    client = Client("localhost", 12346)
-    client.send_syn()
-    client.receive_ack()
-    num_files = 10  # Number of files
-    files = client.generate_random_files(num_files)  # Generate 10 random files
+    def start(self, num_flows):
+        client = Client("localhost", 12346)
+        client.send_syn()
+        client.receive_ack()
+        num_files = num_flows  # Number of files
+        files = client.generate_random_files(num_files)  # Generate X random files
 
-    # Load the content of the generated files into memory
-    data = [open(file, 'r').read() for file in files]
-    # data = [(file_id, file_data) for file_id, file_data in files]
+        # Load the content of the generated files into memory
+        data = [open(file, 'r').read() for file in files]
+        # data = [(file_id, file_data) for file_id, file_data in files]
 
-    client.send_all_packets(data)  # Send packets until all files are fully transmitted
-    time.sleep(0.05)
-    client.close()  # Close the connection
+        client.send_all_packets(data)  # Send packets until all files are fully transmitted
+        time.sleep(0.0005)
+        client.close()  # Close the connection
+
+
+############### IM DOING FUNCTION FROM THE MAIN TO START THE CLIENT ################
+# if __name__ == "__main__":
+#     client = Client("localhost", 12346)
+#     client.send_syn()
+#     client.receive_ack()
+#     num_files = 10  # Number of files
+#     files = client.generate_random_files(num_files)  # Generate 10 random files
+#
+#     # Load the content of the generated files into memory
+#     data = [open(file, 'r').read() for file in files]
+#     # data = [(file_id, file_data) for file_id, file_data in files]
+#
+#     client.send_all_packets(data)  # Send packets until all files are fully transmitted
+#     time.sleep(0.0005)
+#     client.close()  # Close the connection
