@@ -48,13 +48,16 @@ def run_both(host, port, num_flows):
 
     return average_bytes_statistics, average_packets_statistics
 
+
 def save_stats_to_file(average_bytes_statistics, average_packets_statistics, filename):
     with open(filename, 'w') as f:
         for i in range(len(average_bytes_statistics)):
             f.write(f"Run {i + 1} With {i+1} Flows:\n")
-            f.write(f"Average number of bytes per second: {[f'{byte_stat:.2f}' for byte_stat in average_bytes_statistics[i]]}\n")
-            f.write(f"Average number of packets per second: {[f'{packet_stat:.2f}' for packet_stat in average_packets_statistics[i]]}\n")
+            # Fix: Directly format the float values
+            f.write(f"Average number of bytes per second: {average_bytes_statistics[i]:.2f}\n")
+            f.write(f"Average number of packets per second: {average_packets_statistics[i]:.2f}\n")
             f.write("\n")
+
 
 
 if __name__ == "__main__":
@@ -64,55 +67,3 @@ if __name__ == "__main__":
     average_bytes_statistics, average_packets_statistics = run_both(host, port, runs)
     save_stats_to_file(average_bytes_statistics, average_packets_statistics, 'statistics.txt')
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#####################################################################################
-################################### PREVIOUS CODE ###################################
-# import random
-# import time
-# from client import Client
-# from server import Server
-# import threading
-#
-#
-# def run_test(num_flows):
-#     # Start server
-#     server = Server("localhost", 12346)
-#     threading.Thread(target=server.start).start()
-#
-#     # Wait for the server to start
-#     time.sleep(1)
-#
-#     # Create and start client
-#     client = Client("localhost", 12346)
-#
-#     # Create random flow sizes
-#     flows = [random.randint(1000, 2000) for _ in range(num_flows)]
-#     for flow_size in flows:
-#         client.send_file("path/to/file", flow_size)  # Replace with actual method to send files
-#
-#     # Wait for all data to be sent
-#     time.sleep(10)
-#     client.close()
-#     server.close()
-#
-#
-# if __name__ == "__main__":
-#     for num_flows in range(1, 11):
-#         print(f"Running test with {num_flows} flows")
-#         run_test(num_flows)
-#         time.sleep(10)  # Delay between tests

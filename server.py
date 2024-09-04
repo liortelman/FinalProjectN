@@ -9,7 +9,7 @@ from quic import *
 class Server:
 
     def __init__(self, ip, port):
-        self.server_address = (ip, port)
+        self.server_address = (ip, port)                                        # Initialize the server with the IP and port
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.server_socket.bind(self.server_address)
         self.bytes_per_stream = []
@@ -58,53 +58,53 @@ class Server:
     def process_data_packet(self, packet, client_address):
         start_time = time.perf_counter()
         for frame in packet.frames:
-            if frame.stream_id >= len(self.files):
-                self.files += ["" for _ in range(frame.stream_id - len(self.files) + 1)]
-                self.bytes_per_stream += [0 for _ in range(frame.stream_id - len(self.bytes_per_stream) + 1)]
-                self.packets_per_stream += [0 for _ in range(frame.stream_id - len(self.packets_per_stream) + 1)]
-                self.total_times += [start_time for _ in range(frame.stream_id - len(self.total_times) + 1)]
-            self.files[frame.stream_id] += frame.data
+            if frame.stream_id >= len(self.files):  # Check if the stream ID is within the expected range
+                self.files += ["" for _ in range(frame.stream_id - len(self.files) + 1)]    # Add empty strings for new streams
+                self.bytes_per_stream += [0 for _ in range(frame.stream_id - len(self.bytes_per_stream) + 1)]   # Add 0 bytes for new streams
+                self.packets_per_stream += [0 for _ in range(frame.stream_id - len(self.packets_per_stream) + 1)]   # Add 0 packets for new streams
+                self.total_times += [start_time for _ in range(frame.stream_id - len(self.total_times) + 1)]    # Add 0 time for new streams
+            self.files[frame.stream_id] += frame.data   # Append the data to the corresponding stream
         finish_time = time.perf_counter()
-        for frame in packet.frames:
-            self.bytes_per_stream[frame.stream_id] += len(frame.data)
-            self.packets_per_stream[frame.stream_id] += 1
-            self.total_bytes += len(frame.data)
-            self.total_times[frame.stream_id] += finish_time - start_time
-            self.avg_bytes_per_sec.append(self.bytes_per_stream[frame.stream_id] / (finish_time - start_time))
-            self.avg_packets_per_sec.append(self.packets_per_stream[frame.stream_id] / (finish_time - start_time))
-        self.total_packets += 1
-        self.total_time += finish_time - start_time
-        self.server_socket.sendto(packet.serialize(), client_address)
+        for frame in packet.frames: # Update the statistics for the received packet
+            self.bytes_per_stream[frame.stream_id] += len(frame.data)   # Update the total bytes received for the stream
+            self.packets_per_stream[frame.stream_id] += 1   # Update the total packets received for the stream
+            self.total_bytes += len(frame.data) # Update the total bytes received
+            self.total_times[frame.stream_id] += finish_time - start_time   # Update the total time for the stream
+            self.avg_bytes_per_sec.append(self.bytes_per_stream[frame.stream_id] / (finish_time - start_time))  # Calculate the average data rate for the stream
+            self.avg_packets_per_sec.append(self.packets_per_stream[frame.stream_id] / (finish_time - start_time))  # Calculate the average packet rate for the stream
+        self.total_packets += 1  # Update the total packets received
+        self.total_time += finish_time - start_time # Update the total time
+        self.server_socket.sendto(packet.serialize(), client_address)   # Send an ACK packet to acknowledge the received data
 
     def print_statistics(self):
         """
         Print the statistics for each stream and overall data rates.
         """
         print("\n--------------------------------- Statistics ---------------------------------")
-        print(f"\na.     Total Bytes Received For Each Stream:\n")
+        print(f"\na.     Total Bytes Received For Each Stream:\n")  # a. Total Bytes Received For Each Stream
         for i in range(len(self.bytes_per_stream)):
             print(f"Stream {i}: {self.bytes_per_stream[i]} bytes")
         print("--------------------------------------------------------------------------------")
-        print(f"\nb.     Total Packets Received For Each Stream:\n")
+        print(f"\nb.     Total Packets Received For Each Stream:\n")    # b. Total Packets Received For Each Stream
         for i in range(len(self.packets_per_stream)):
             print(f"Stream {i}: {self.packets_per_stream[i]} packets")
         print("--------------------------------------------------------------------------------")
-        print(f"\nc.     Data Rate By Bytes/Sec and Packet/Sec Per Stream:\n")
-        for i in range(len(self.bytes_per_stream)):
+        print(f"\nc.     Data Rate By Bytes/Sec and Packet/Sec Per Stream:\n")  # c. Data Rate By Bytes/Sec and Packet/Sec Per Stream
+        for i in range(len(self.bytes_per_stream)): # Calculate the average data rate for each stream
             stream_time = time.perf_counter() - self.total_times[i]
             avg_bytes_per_sec = self.bytes_per_stream[i] / stream_time if stream_time > 0 else 0
             avg_packets_per_sec = self.packets_per_stream[i] / stream_time if stream_time > 0 else 0
             print(f"Stream {i}: {avg_bytes_per_sec} bytes/sec, {avg_packets_per_sec} packets/sec")
         avg_total_bytes_per_sec = self.total_bytes / self.total_time if self.total_time > 0 else 0
         print("--------------------------------------------------------------------------------")
-        print(f"\nd.     Overall Average Data Rate: {avg_total_bytes_per_sec} bytes/sec\n")
+        print(f"\nd.     Overall Average Data Rate: {avg_total_bytes_per_sec} bytes/sec\n")     # d. Overall Average Data Rate
         avg_total_packets_per_sec = self.total_packets / self.total_time if self.total_time > 0 else 0
         print("--------------------------------------------------------------------------------")
-        print(f"\ne.     Overall Average Packet Rate: {avg_total_packets_per_sec} packets/sec\n")
+        print(f"\ne.     Overall Average Packet Rate: {avg_total_packets_per_sec} packets/sec\n")   # e. Overall Average Packet Rate
         print("--------------------------------------------------------------------------------")
         print(f"\n-Received Files Comparison:\n")
 
-        for i in range(len(self.files)):
+        for i in range(len(self.files)):    # Save the received files to the output files
             output_file = f"output_{i}.txt"
             with open(output_file, "w") as f:
                 f.write(self.files[i])

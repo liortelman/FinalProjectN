@@ -162,20 +162,3 @@ class Client:
         client.send_all_packets(data)  # Send packets until all files are fully transmitted
         time.sleep(0.0005)
         client.close()  # Close the connection
-
-
-############### IM DOING FUNCTION FROM THE MAIN TO START THE CLIENT ################
-# if __name__ == "__main__":
-#     client = Client("localhost", 12346)
-#     client.send_syn()
-#     client.receive_ack()
-#     num_files = 10  # Number of files
-#     files = client.generate_random_files(num_files)  # Generate 10 random files
-#
-#     # Load the content of the generated files into memory
-#     data = [open(file, 'r').read() for file in files]
-#     # data = [(file_id, file_data) for file_id, file_data in files]
-#
-#     client.send_all_packets(data)  # Send packets until all files are fully transmitted
-#     time.sleep(0.0005)
-#     client.close()  # Close the connection
