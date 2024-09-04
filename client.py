@@ -125,13 +125,19 @@ class Client:
     def receive_ack(self):
         """
                 Receive an ACK packet from the server to confirm the connection.
-         """
-        data, server_address = self.client_socket.recvfrom(1024)
-        print(f"Received packet from {server_address}")
-        packet = Quic_packet.deserialize(data)
+        """
+        try:
+            self.client_socket.settimeout(2.0)
+            data, server_address = self.client_socket.recvfrom(1024)
+            print(f"Received packet from {server_address}")
+            packet = Quic_packet.deserialize(data)
 
-        if packet.header.flags & 0b00000011:
-            print(f"Received packet with packet number {packet.header.packet_number} and connection ID {packet.header.connection_id} and data {packet.frames[0].data}")
+            if packet.header.flags & 0b00000011:
+                print(f"Received packet with packet number {packet.header.packet_number} and connection ID {packet.header.connection_id} and data {packet.frames[0].data}")
+        except socket.timeout:
+            print("No response received from the server. Closing the connection.")
+            self.close()
+            raise Exception("No response received from the server. Closing the connection.")
 
     def close(self):
         """
@@ -147,6 +153,29 @@ class Client:
         self.client_socket.sendto(serialized_packet, server_address)
         print(f"Sent FIN packet to {server_address}")
 
+    def send_data_directly(self, data):
+        """
+        Send a list of string data directly, bypassing file generation.
+        """
+        self.send_syn()
+        self.receive_ack()
+
+        offsets = [0 for _ in range(len(data))]
+        packet_number = 1
+        fin_sent = False
+
+        while data:
+            packet, data, offsets = self.create_packet(packet_number, data, offsets)
+            self.send_packet(packet)
+            time.sleep(0.0005)
+            packet_number += 1
+
+        if not fin_sent:
+            self.send_fin_massage(self.server_address, packet_number, 1)
+            fin_sent = True
+
+        print("All data has been sent")
+        self.close()
 
     def start(self, num_flows):
         client = Client("localhost", 12346)

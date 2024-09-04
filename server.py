@@ -40,7 +40,7 @@ class Server:
                 self.send_syn_ack(client_address, packet.header.packet_number, packet.header.connection_id)
 
             # Check if the packet has the FIN flag set (indicating a connection termination request).
-            if packet.header.flags & 0b00000100:
+            elif packet.header.flags & 0b00000100:
                 print("- - - - Received FIN packet")
                 # Send a FIN-ACK response to acknowledge the FIN packet and close the connection.
                 self.send_fin_ack(client_address, packet.header.packet_number, packet.header.connection_id)
@@ -48,7 +48,7 @@ class Server:
                 break
 
             # if it is a DATA packet
-            if packet.header.flags & 0b00000010:
+            elif packet.header.flags & 0b00000010:
                 # Process the received data packet.
                 self.process_data_packet(packet, client_address)
 
@@ -121,7 +121,7 @@ class Server:
         return filecmp.cmp(file1, file2, shallow=False)
 
     def send_syn_ack(self, client_address, packet_number, connection_id):
-        flags = 0b00000011
+        flags = 0b00000011  # SYN_ACK flag indicating the connection establishment
         frame = Frame(1, 0, 7, "SYN_ACK")
         packet = Quic_packet(flags, packet_number, connection_id, [frame])
         serialized_packet = packet.serialize()
