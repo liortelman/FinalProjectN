@@ -1,5 +1,4 @@
 import filecmp
-import os
 import socket
 import time
 
@@ -119,9 +118,6 @@ class Server:
         return self.avg_bytes_per_sec, self.avg_packets_per_sec
 
     def compare_files(self, file1, file2):  # Compare two files to see if they are identical.
-        if not os.path.exists(file1) or not os.path.exists(file2):
-            print(f"File {file1} or {file2} does not exist.")
-            return False
         return filecmp.cmp(file1, file2, shallow=False)
 
     def send_syn_ack(self, client_address, packet_number, connection_id):

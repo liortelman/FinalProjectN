@@ -60,11 +60,8 @@ class Client:
             if stream_id >= len(data):
                 continue
 
-            stream_data = data[stream_id][1]
+            stream_data = data[stream_id]
             chunk_data = stream_data[offsets[stream_id]:offsets[stream_id] + frame_size]
-            if not chunk_data:  # Skip empty data chunks
-                continue
-
             frames.append(Frame(stream_id + self.stream_id_counter, offsets[stream_id], len(chunk_data), chunk_data))
             offsets[stream_id] += len(chunk_data)
 
@@ -93,6 +90,9 @@ class Client:
         # print(f"Sent packet to {self.server_address} with packet number {packet.header.packet_number}")
 
     def send_all_packets(self, data):
+        if self.check_data(data) == False:
+            raise TypeError("Data must be a list of strings.")
+
         packet_number = 1
         offsets = [0 for _ in range(len(data))]
         fin_sent = False
@@ -156,33 +156,29 @@ class Client:
         self.client_socket.sendto(serialized_packet, server_address)
         print(f"Sent FIN packet to {server_address}")
 
-    def send_data_directly(self, data):
-        """
-        Send a list of string data directly, bypassing file generation.
-        """
-        for item in data:
-            if not isinstance(item, str):   # Check if the data is a string
-                raise TypeError("All data must be strings.")
-
-        self.send_syn()
-        self.receive_ack()
-
-        offsets = [0 for _ in range(len(data))]
-        packet_number = 1
-        fin_sent = False
-
-        while data:
-            packet, data, offsets = self.create_packet(packet_number, data, offsets)
-            self.send_packet(packet)
-            time.sleep(0.0005)
-            packet_number += 1
-
-        if not fin_sent:
-            self.send_fin_massage(self.server_address, packet_number, 1)
-            fin_sent = True
-
-        print("All data has been sent")
-        self.close()
+    # def send_data_directly(self, data):
+    #     """
+    #     Send a list of string data directly, bypassing file generation.
+    #     """
+    #     self.send_syn()
+    #     self.receive_ack()
+    #
+    #     offsets = [0 for _ in range(len(data))]
+    #     packet_number = 1
+    #     fin_sent = False
+    #
+    #     while data:
+    #         packet, data, offsets = self.create_packet(packet_number, data, offsets)
+    #         self.send_packet(packet)
+    #         time.sleep(0.0005)
+    #         packet_number += 1
+    #
+    #     if not fin_sent:
+    #         self.send_fin_massage(self.server_address, packet_number, 1)
+    #         fin_sent = True
+    #
+    #     print("All data has been sent")
+    #     self.close()
 
     def start(self, num_flows):
         client = Client("localhost", 12346)
@@ -198,3 +194,11 @@ class Client:
         client.send_all_packets(data)  # Send packets until all files are fully transmitted
         time.sleep(0.0005)
         client.close()  # Close the connection
+
+    def check_data(self, data):
+        if not isinstance(data, list):
+            return False
+        for item in data:
+            if not isinstance(item, str):
+                return False
+        return True
