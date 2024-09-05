@@ -60,8 +60,11 @@ class Client:
             if stream_id >= len(data):
                 continue
 
-            stream_data = data[stream_id]
+            stream_data = data[stream_id][1]
             chunk_data = stream_data[offsets[stream_id]:offsets[stream_id] + frame_size]
+            if not chunk_data:  # Skip empty data chunks
+                continue
+
             frames.append(Frame(stream_id + self.stream_id_counter, offsets[stream_id], len(chunk_data), chunk_data))
             offsets[stream_id] += len(chunk_data)
 
@@ -157,6 +160,10 @@ class Client:
         """
         Send a list of string data directly, bypassing file generation.
         """
+        for item in data:
+            if not isinstance(item, str):   # Check if the data is a string
+                raise TypeError("All data must be strings.")
+
         self.send_syn()
         self.receive_ack()
 
