@@ -72,7 +72,7 @@ class TestClientServer(unittest.TestCase):
         self.run_both_for_testing(data)
 
     def test_non_string_data(self):
-        data = [69 for _ in range(10)]  # non-string data
+        data = [123 for _ in range(10)]  # non-string data
         with self.assertRaises(TypeError):
             Client.send_all_packets(data)
 
