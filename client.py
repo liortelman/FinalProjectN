@@ -156,30 +156,6 @@ class Client:
         self.client_socket.sendto(serialized_packet, server_address)
         print(f"Sent FIN packet to {server_address}")
 
-    # def send_data_directly(self, data):
-    #     """
-    #     Send a list of string data directly, bypassing file generation.
-    #     """
-    #     self.send_syn()
-    #     self.receive_ack()
-    #
-    #     offsets = [0 for _ in range(len(data))]
-    #     packet_number = 1
-    #     fin_sent = False
-    #
-    #     while data:
-    #         packet, data, offsets = self.create_packet(packet_number, data, offsets)
-    #         self.send_packet(packet)
-    #         time.sleep(0.0005)
-    #         packet_number += 1
-    #
-    #     if not fin_sent:
-    #         self.send_fin_massage(self.server_address, packet_number, 1)
-    #         fin_sent = True
-    #
-    #     print("All data has been sent")
-    #     self.close()
-
     def start(self, num_flows):
         client = Client("localhost", 12346)
         client.send_syn()
